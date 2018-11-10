@@ -1,11 +1,7 @@
 
 package smtpskeleton;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -21,11 +17,13 @@ public class Server {
         InetAddress localHost = InetAddress.getLocalHost();
         BufferedReader in = null;
         PrintWriter pr = null;
+        BufferedOutputStream br = null;
         //Closed State
         while(true) {
             Socket smtpSocket = new Socket(mailHost, 25);
             in = new BufferedReader(new InputStreamReader(smtpSocket.getInputStream()));
             pr = new PrintWriter(smtpSocket.getOutputStream(), true);
+            br = new BufferedOutputStream(smtpSocket.getOutputStream());
 
             int time = (int) System.currentTimeMillis();
             String initialID = in.readLine();
@@ -192,6 +190,9 @@ public class Server {
 
             Scanner subsc = new Scanner(System.in);
             while (true) {
+                System.out.println("Do you want to attach files?[Y/N]: ");
+                Scanner atc = new Scanner(System.in);
+                String attach = atc.nextLine();
                 System.out.println("Subject: ");
                 String sub = subsc.nextLine();
 
@@ -221,14 +222,47 @@ public class Server {
                         mail += line + "\n";
                     }
                     if (rec.equals("1")) {
-                        //System.out.println("From: " + from + "\nTo: " + to + "\nSubject: " + sub + "\n" + mail + ".\n");
-                        pr.println("Subject: " + sub);
-                        pr.println("From: " + from);
-                        pr.println("To: "+ to);
-                        pr.println("\n" + mail);
-                        pr.println(".");
-                        pr.flush();
+                        if(attach.equalsIgnoreCase("Y")){
+                            System.out.println("Enter file name: ");
+                            Scanner atchmnt = new Scanner(System.in);
+                            String attachment = atchmnt.nextLine();
+                            File file = new File("/home/asif/Asif/Study/L-3,T-2/CSE 322 Computer Networks Sessional/Offline/src/smtpskeleton/"+attachment);
+                            int file_length = (int) file.length();
+                            byte[] file_data = readFileData(file, file_length);
 
+                            pr.println("From: " + from);
+                            pr.println("To: " + to);
+                            pr.println("Subject: " + sub);
+                            pr.println("MIME-Version: 1.0");
+                            pr.println("Content-type: multipart/mixed; boundary= simple");
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println();
+                            pr.println(mail);
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println("Content-type: plain/txt");
+                            pr.println("Content-Disposition: attachment; filename="+attachment);
+                            pr.println("Content-Transfer-Encoding: binary");
+                            pr.println();
+                            pr.flush();
+                            br.write(file_data, 0, file_length);
+                            br.flush();
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println();
+                            pr.println(".");
+                            pr.flush();
+
+                        }else {
+                            //System.out.println("From: " + from + "\nTo: " + to + "\nSubject: " + sub + "\n" + mail + ".\n");
+                            pr.println("Subject: " + sub);
+                            pr.println("From: " + from);
+                            pr.println("To: " + to);
+                            pr.println("\n" + mail);
+                            pr.println(".");
+                            pr.flush();
+                        }
                         int tim = (int) System.currentTimeMillis();
                         String ser = in.readLine();
                         System.out.println(ser);
@@ -257,14 +291,47 @@ public class Server {
                         for (int i = 1; i < multiRec.size(); i++) {
                             cc += multiRec.get(i) + ",";
                         }
-                        pr.println("Subject: " + sub);
-                        pr.println("From: " + from);
-                        pr.println("To: " + multiRec.get(0));
-                        pr.println("Cc: " + cc );
-                        pr.println("\n" + mail);
-                        pr.println(".");
-                        pr.flush();
+                        if(attach.equalsIgnoreCase("Y")){
+                            System.out.println("Enter file name: ");
+                            Scanner atchmnt = new Scanner(System.in);
+                            String attachment = atchmnt.nextLine();
+                            File file = new File("/home/asif/Asif/Study/L-3,T-2/CSE 322 Computer Networks Sessional/Offline/src/smtpskeleton/"+attachment);
+                            int file_length = (int) file.length();
+                            byte[] file_data = readFileData(file, file_length);
 
+                            pr.println("Subject: " + sub);
+                            pr.println("From: " + from);
+                            pr.println("To: " + to);
+                            pr.println("Cc: "+ cc);
+                            pr.println("MIME-Version: 1.0");
+                            pr.println("Content-type: multipart/mixed; boundary= simple");
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println();
+                            pr.println(mail);
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println("Content-type: plain/txt");
+                            pr.println("Content-Disposition: attachment; filename="+attachment);
+                            pr.println("Content-Transfer-Encoding: binary");
+                            pr.println();
+                            pr.flush();
+                            br.write(file_data, 0, file_length);
+                            br.flush();
+                            pr.println();
+                            pr.println("--simple");
+                            pr.println();
+                            pr.println(".");
+                            pr.flush();
+                        }else {
+                            pr.println("Subject: " + sub);
+                            pr.println("From: " + from);
+                            pr.println("To: " + multiRec.get(0));
+                            pr.println("Cc: " + cc);
+                            pr.println("\n" + mail);
+                            pr.println(".");
+                            pr.flush();
+                        }
                         int tim = (int) System.currentTimeMillis();
                         String ser = in.readLine();
                         System.out.println(ser);
@@ -313,5 +380,20 @@ public class Server {
 
         }
 
+    }
+
+    private static byte[] readFileData(File file, int fileLength) throws IOException {
+        FileInputStream fileIn = null;
+        byte[] fileData = new byte[fileLength];
+
+        try {
+            fileIn = new FileInputStream(file);
+            fileIn.read(fileData);
+        } finally {
+            if (fileIn != null)
+                fileIn.close();
+        }
+
+        return fileData;
     }
 }
